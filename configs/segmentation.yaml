@@ -1,0 +1,5 @@
+# Placeholder configuration for math block segmentation rules.
+segmentation:
+  enabled: true
+  strategy: placeholder
+
