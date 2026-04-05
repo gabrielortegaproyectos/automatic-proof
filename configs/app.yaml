@@ -1,0 +1,5 @@
+# Base application settings for the future article2lean application.
+application:
+  name: article2lean
+  stage: scaffold
+

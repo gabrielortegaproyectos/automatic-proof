@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "article2lean"
+version = "0.1.0"
+description = "Pedagogical toolkit for refining mathematical arguments into Lean workflows."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+article2lean = "article2lean.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/article2lean"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

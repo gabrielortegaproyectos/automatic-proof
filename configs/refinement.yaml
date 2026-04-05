@@ -1,0 +1,5 @@
+# Placeholder configuration for sketch refinement behavior.
+refinement:
+  enabled: true
+  strategy: placeholder
+

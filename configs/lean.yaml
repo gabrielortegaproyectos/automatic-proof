@@ -1,0 +1,5 @@
+# Placeholder configuration for Lean integration.
+lean:
+  backend: placeholder
+  command: ""
+
