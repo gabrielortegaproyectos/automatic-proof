@@ -1,0 +1,9 @@
+.codex
+.python-version
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.egg-info/
+build/
+dist/
