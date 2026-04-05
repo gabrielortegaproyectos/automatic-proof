@@ -58,27 +58,6 @@ La CLI es intencionalmente minima y pedagogica por ahora.
 - `article2lean theorem`: placeholder del pipeline futuro para teoremas aislados.
 - `article2lean architecture`: imprime una explicacion corta del mapa del sistema.
 
-## Como leer los tests
-
-Los tests de esta primera tarea no intentan verificar matematica ni integracion
-con Lean. Su objetivo es confirmar que el esqueleto del proyecto quedo
-instalado, navegable y entendible.
-
-- `tests/test_cli.py`: prueba la interfaz minima. Verifica que `--help` existe y
-  que los comandos placeholder explican su papel dentro del sistema.
-- `tests/test_imports.py`: prueba que el paquete y algunos modulos clave se
-  puedan importar. Esto sirve para detectar errores tempranos de estructura o de
-  empaquetado.
-- `tests/test_package_layout.py`: prueba que existan archivos y carpetas que la
-  especificacion de la Tarea 01 espera. Es una forma simple de vigilar que el
-  scaffold siga alineado con el diseño.
-
-En otras palabras:
-
-1. `test_cli.py` responde a "la puerta de entrada funciona?"
-2. `test_imports.py` responde a "el paquete esta bien armado?"
-3. `test_package_layout.py` responde a "la estructura coincide con el mapa?"
-
 ## Limitaciones actuales
 
 - El proyecto todavia no parsea Markdown.
