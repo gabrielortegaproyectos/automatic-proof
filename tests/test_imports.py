@@ -1,4 +1,9 @@
-"""Import-focused tests for the scaffold package."""
+"""Import-focused tests for the scaffold package.
+
+This file checks that the package layout is healthy from Python's point of
+view. If these tests fail, the project may look correct in the file tree but be
+broken as an installable package.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,11 @@ import pytest
 
 
 def test_package_exposes_a_version_string() -> None:
-    """The top-level package should expose a readable version."""
+    """Verify that the package exposes a simple public version string.
+
+    This is a tiny smoke test for the package root: if importing the top-level
+    package already fails, the rest of the scaffold is not ready to use.
+    """
 
     assert article2lean.__version__ == "0.1.0"
 
@@ -28,8 +37,12 @@ def test_package_exposes_a_version_string() -> None:
     ],
 )
 def test_key_modules_are_importable(module_name: str) -> None:
-    """Important modules from each subsystem should import cleanly."""
+    """Verify that representative modules from each subsystem import cleanly.
+
+    The goal is not to test their logic yet. The goal is to confirm that the
+    scaffold is wired correctly and that each main subsystem already has a valid
+    Python module behind it.
+    """
 
     module = importlib.import_module(module_name)
     assert module.__doc__
-

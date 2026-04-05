@@ -1,4 +1,9 @@
-"""Layout tests that keep the scaffold aligned with the specification."""
+"""Layout tests that keep the scaffold aligned with the specification.
+
+These tests treat the repository structure as part of the public contract of
+Tarea 01. They help us catch regressions where a file or package disappears and
+the project stops matching the intended architecture.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_expected_top_level_paths_exist() -> None:
-    """The first task should create the expected top-level project files."""
+    """Verify that the top-level files promised by Tarea 01 exist.
+
+    This is the most direct check that the scaffold task was actually completed:
+    the project root should already contain the files needed to install, read,
+    and explore the repository.
+    """
 
     expected_paths = [
         PROJECT_ROOT / "pyproject.toml",
@@ -27,7 +37,13 @@ def test_expected_top_level_paths_exist() -> None:
 
 
 def test_expected_subpackages_exist() -> None:
-    """The scaffold should make the main subsystem boundaries explicit."""
+    """Verify that the main subsystem directories are already present.
+
+    This test is architectural rather than behavioral. It checks that the code
+    base already exposes the intended separation between ingestion,
+    segmentation, sketches, formalization, proving, and the other supporting
+    layers.
+    """
 
     expected_directories = [
         PROJECT_ROOT / "src" / "article2lean" / "models",
