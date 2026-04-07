@@ -1294,7 +1294,10 @@ Comandos o inputs mínimos.
 Qué todavía no resuelve.
 ```
 
-## 32. Prompt maestro para pedirle a Codex tickets entendibles
+## 32. Prompt maestro del proyecto
+
+Este bloque puede guardarse como instruccion persistente en `AGENTS.md` en la
+raiz del repositorio. La idea es no tener que pegarlo de nuevo en cada chat.
 
 ```text
 Quiero que implementes este proyecto por tareas pequeñas y entendibles. No construyas todo de una vez.
@@ -1317,6 +1320,10 @@ Empieza por la tarea `feat/01-project-scaffold`.
 ```
 
 ## 33. Prompt individual reusable para cada tarea
+
+Este si conviene reutilizarlo en el chat cada vez que abras una tarea nueva. Si
+ya existe `AGENTS.md`, no hace falta repetir ahi las reglas globales del
+proyecto.
 
 ```text
 Implementa la tarea `<NOMBRE_DE_LA_TAREA>` en una rama separada.
