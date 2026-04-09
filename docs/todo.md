@@ -15,7 +15,7 @@ Esto es importante porque el proyecto no debe quedar como una caja negra.
 
 ---
 
-### Tarea 01 — Esqueleto del proyecto ✅
+### ~~Tarea 01 — Esqueleto del proyecto~~ ✅
 
 **Branch:** `feat/01-project-scaffold`
 
@@ -52,9 +52,30 @@ Esta tarea define el mapa del sistema. Si esta parte queda clara, después será
 * `README.md`
 * `src/article2lean/cli.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/01-project-scaffold` en una rama separada.
+
+Crea la estructura inicial del proyecto Python `article2lean`:
+- pyproject.toml con dependencias mínimas (pytest, typer)
+- src/article2lean/ con __init__.py y cli.py
+- subcarpetas vacías con __init__.py: ingestion, segmentation, references, sketches, formalization, proving, orchestrators, exporters, models, utils
+- tests/ vacío con conftest.py mínimo
+- README.md que explique qué hace cada subcarpeta
+
+Reglas del proyecto (ver AGENTS.md):
+- una sola tarea por branch
+- usa dataclasses y type hints donde aplique
+- deja docstrings en cli.py
+- agrega tests que verifiquen que el paquete importa y la CLI responde
+
+Al terminar resume: qué creaste, cómo instalarlo, cómo correr la CLI, limitaciones actuales.
+```
+
 ---
 
-### Tarea 02 — Ingesta de Markdown ✅
+### ~~Tarea 02 — Ingesta de Markdown~~ ✅
 
 **Branch:** `feat/02-markdown-ingestion`
 
@@ -87,9 +108,33 @@ Esta es la puerta de entrada del modo artículo. Sin esto no hay segmentación n
 * `src/article2lean/ingestion/markdown_loader.py`
 * `tests/test_markdown_loader.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/02-markdown-ingestion` en una rama separada.
+
+Crea el módulo src/article2lean/ingestion/markdown_loader.py que:
+- lea un archivo .md y lo convierta en un MarkdownDocument
+- extraiga bloques de tipo heading, paragraph y list usando la librería mistune o similar
+- cada bloque debe ser un ArticleBlock (dataclass) con al menos: block_type, content, level (solo headings)
+- no clasifique contenido matemático todavía, solo detecta tipos estructurales
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- no ocultes la lógica en funciones demasiado grandes
+- agrega docstrings que expliquen cada función pública
+
+Tests requeridos en tests/test_markdown_loader.py:
+- cargar el fixture tests/fixtures/garrido2025inexact.md y verificar que devuelve bloques
+- verificar que los headings tienen block_type == "heading"
+- verificar que los párrafos tienen block_type == "paragraph"
+
+Al terminar resume: qué parsea, qué no parsea todavía, cómo probarlo, limitaciones.
+```
+
 ---
 
-### Tarea 03 — Segmentación matemática por reglas ✅
+### ~~Tarea 03 — Segmentación matemática por reglas~~ ✅
 
 **Branch:** `feat/03-math-segmentation`
 
@@ -125,6 +170,32 @@ Esta tarea transforma un documento general en un documento matemático estructur
 * `src/article2lean/segmentation/inline_label_rules.py`
 * `src/article2lean/segmentation/block_classifier.py`
 * `src/article2lean/models/enums.py` (`BlockKind`)
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/03-math-segmentation` en una rama separada.
+
+Esta tarea clasifica los bloques crudos de ingestion con un rol matemático (THEOREM, LEMMA, PROOF, DEFINITION, PROPOSITION, COROLLARY, REMARK, EXAMPLE, OBSERVATION, CONJECTURE, NOTATION) o estructural (HEADING, PARAGRAPH, LIST, UNKNOWN).
+
+Crea:
+- src/article2lean/models/enums.py: enum BlockKind(str, Enum) con los 16 valores anteriores
+- src/article2lean/segmentation/heading_rules.py: classify_heading(title) -> (BlockKind, label | None)
+  - path rápido: regex para nombres completos + abreviaciones (Def., Thm., Prop., Lem., Cor., Rem., Obs., Conj., Note)
+  - path lento: dict _NORMALIZE para variantes en español/francés/portugués + difflib como último recurso
+- src/article2lean/segmentation/inline_label_rules.py: classify_inline(text) -> (BlockKind | None, label | None)
+  - detecta etiquetas al inicio del párrafo, incluyendo marcadores **bold** y *italic*
+  - misma cobertura de abreviaciones y variantes lingüísticas que heading_rules
+- src/article2lean/segmentation/block_classifier.py: classify_blocks(document) -> list[ArticleBlock]
+  - aplica ambas reglas sin mutar el documento original
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings en cada función pública
+- tests exhaustivos usando el fixture tests/fixtures/garrido2025inexact.md
+
+Al terminar resume: qué clasifica, qué casos ambiguos quedan, cómo probarlo.
+```
 
 ---
 
@@ -174,6 +245,35 @@ Un teorema o una prueba raramente ocupa un solo bloque. Puede abarcar múltiples
 * `src/article2lean/segmentation/proof_linker.py`
 * tests correspondientes
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/04-proof-linking` en una rama separada.
+
+Esta tarea tiene dos subobjetivos:
+
+1. ENLACE ESTRUCTURAL (reglas deterministas):
+   - Crea src/article2lean/segmentation/proof_linker.py
+   - link_proofs(blocks: list[ArticleBlock]) -> list[ArticleBlock] vincula cada bloque PROOF al statement (THEOREM, LEMMA, PROPOSITION, COROLLARY) inmediatamente anterior
+   - soporta referencias explícitas tipo "Proof of Theorem 2.1" usando el campo label del bloque
+   - marca las pruebas huérfanas (sin statement vinculado) con un campo linked_to = None
+
+2. DELIMITACIÓN SEMÁNTICA CON LLM (ventanas de contexto):
+   - Crea un módulo de delimitación (puede vivir en proof_linker.py o en boundary_detector.py)
+   - build_context_windows(blocks) construye ventanas: cada ventana va desde un bloque landmark (cualquier BlockKind matemático) hasta el inicio del siguiente landmark
+   - detect_boundary(window, llm_client) envía esa ventana al LLM con un prompt estructurado; el LLM recibe el tipo del landmark inicial, su label, y los bloques siguientes; devuelve el índice del último bloque que pertenece a esa unidad
+   - el LLM no recibe el documento completo, solo la ventana relevante
+   - usa un protocolo de LLM inyectable (interfaz abstracta) para no acoplarse a OpenAI directamente
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings en cada función pública
+- escribe tests para el enlace estructural con casos del fixture garrido2025inexact.md
+- los tests del módulo LLM pueden usar un mock del cliente
+
+Al terminar resume: qué casos resuelve con reglas, cuáles delega al LLM, cómo probarlo, limitaciones.
+```
+
 ---
 
 ### Tarea 05 — Resolución de referencias
@@ -205,6 +305,26 @@ Aquí aparece la lógica interna del artículo: qué depende de qué.
 **Archivos esperados**
 
 * `src/article2lean/references/theorem_reference_resolver.py`
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/05-reference-resolution` en una rama separada.
+
+Crea src/article2lean/references/theorem_reference_resolver.py que:
+- extraiga referencias textuales explícitas de cada bloque (e.g. "Lemma 2.3", "Theorem 4.1", "Definition 2.1")
+- extraiga referencias implícitas (e.g. "previous theorem", "the above lemma", "teorema anterior")
+- resuelva referencias locales: si "Lemma 2.3" existe en la lista de bloques clasificados, vincúlalo
+- deje sin resolver las referencias a trabajos externos (citas tipo [3], [Gar25], etc.)
+- devuelva por bloque: lista de ReferenceCandidate(text, kind, label, resolved_block_id | None)
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings en cada función pública
+- agrega tests con ejemplos del fixture garrido2025inexact.md
+
+Al terminar resume: qué patrones detecta, qué queda sin resolver, cómo probarlo.
+```
 
 ---
 
@@ -238,6 +358,27 @@ El grafo permite ordenar la formalización y entender la arquitectura lógica de
 
 * `src/article2lean/references/dependency_graph.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/06-dependency-graph` en una rama separada.
+
+Crea src/article2lean/references/dependency_graph.py que:
+- construya un DAG (grafo acíclico dirigido) entre bloques matemáticos usando las referencias resueltas de Tarea 05
+- cada nodo del grafo representa un bloque clasificado (theorem, lemma, definition, etc.) identificado por su block_id
+- cada arista A → B significa "A depende de B" (A referencia a B en su prueba o enunciado)
+- exponga: add_node, add_edge, topological_order() -> list[block_id], parents(block_id), children(block_id)
+- detecte y reporte ciclos (aunque en un paper bien formado no deberían existir)
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- no uses librerías externas de grafos — implementa la estructura mínima con dicts
+- deja docstrings explicando qué representa cada arista
+- agrega tests con un grafo pequeño de ejemplo (3-4 nodos con dependencias)
+
+Al terminar resume: qué estructura de datos usa, cómo consultar el orden topológico, limitaciones.
+```
+
 ---
 
 ### Tarea 07 — Unidades de formalización
@@ -270,6 +411,28 @@ Esta es la primera capa entre el documento humano y la capa formal.
 * `src/article2lean/formalization/statement_formalizer.py`
 * `src/article2lean/models/article_models.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/07-formalization-units` en una rama separada.
+
+Crea:
+- src/article2lean/models/article_models.py: dataclass FormalizationUnit con campos:
+  block_id, kind (BlockKind), label, raw_text, lean_name (placeholder), lean_statement (placeholder), dependencies (list[block_id])
+- src/article2lean/formalization/statement_formalizer.py:
+  - formalize(block: ArticleBlock) -> FormalizationUnit
+  - genera un lean_name en snake_case a partir del kind y label (e.g. "theorem_4_1", "definition_2_1")
+  - el lean_statement es un placeholder: "sorry -- <raw_text truncada a 80 chars>"
+  - no intenta traducir matemáticas a Lean todavía
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings explicando qué representa cada campo
+- agrega tests que verifiquen la generación de lean_name y que el placeholder se construye correctamente
+
+Al terminar resume: qué información captura FormalizationUnit, qué queda como placeholder, limitaciones.
+```
+
 ---
 
 ### Tarea 08 — Ensamblador Lean
@@ -301,6 +464,28 @@ Permite ver el primer puente tangible entre documento y Lean.
 **Archivos esperados**
 
 * `src/article2lean/formalization/lean_assembler.py`
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/08-lean-assembly` en una rama separada.
+
+Crea src/article2lean/formalization/lean_assembler.py que:
+- reciba una lista de FormalizationUnit (de Tarea 07) ordenada topológicamente (de Tarea 06)
+- produzca un string con un archivo Lean 4 placeholder válido en sintaxis básica:
+  - imports: import Mathlib (placeholder)
+  - namespace: namespace Article
+  - una entrada por unidad: /- kind label -/ \n theorem lean_name : sorry := by sorry
+  - end Article al final
+- exponga: assemble(units: list[FormalizationUnit]) -> str
+
+Reglas del proyecto (ver AGENTS.md):
+- usa type hints
+- deja docstrings explicando el formato de salida
+- agrega tests que verifiquen que el output contiene las entradas esperadas para una lista pequeña de unidades
+
+Al terminar resume: qué produce, cómo se vería un ejemplo de salida, limitaciones.
+```
 
 ---
 
@@ -336,6 +521,29 @@ Da el primer mecanismo real de verificación, aunque todavía básico.
 * `src/article2lean/proving/lean_backend.py`
 * `src/article2lean/proving/executor.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/09-cli-lean-backend` en una rama separada.
+
+Crea:
+- src/article2lean/proving/lean_backend.py: clase abstracta LeanBackend con método check(lean_source: str) -> LeanResult
+- src/article2lean/proving/executor.py: clase CliLeanBackend(LeanBackend) que:
+  - escribe el contenido en un archivo temporal
+  - ejecuta `lake env lean <archivo>` como subproceso
+  - captura stdout, stderr y código de retorno
+  - devuelve LeanResult(success: bool, output: str, errors: list[str])
+- dataclass LeanResult en lean_backend.py
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- usa interfaz abstracta (abc.ABC) para LeanBackend para permitir futuros backends
+- deja docstrings que expliquen qué hace cada método
+- agrega tests que mockeen el subproceso: un test con salida exitosa y uno con error
+
+Al terminar resume: cómo se usa, qué devuelve LeanResult en cada caso, cómo agregar un backend alternativo.
+```
+
 ---
 
 ### Tarea 10 — Modelos de sketch
@@ -368,6 +576,27 @@ Aquí se unifican las dos ramas del proyecto.
 
 * `src/article2lean/models/sketch_models.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/10-sketch-models` en una rama separada.
+
+Crea src/article2lean/models/sketch_models.py con estas dataclasses:
+
+- NodeStatus(str, Enum): OPEN, SUBDIVIDED, FORMALIZED, ASSUMED, DEFERRED, FAILED
+- HoleKind(str, Enum): LOGICAL_GAP, FORMALIZATION_GAP, EXTERNAL_DEPENDENCY, AMBIGUOUS
+- ArgumentHole: node_id, kind (HoleKind), description, suggested_action
+- ArgumentNode: node_id, parent_id | None, description, status (NodeStatus), subnodes (list[ArgumentNode]), holes (list[ArgumentHole]), lean_fragment (str | None)
+- ArgumentSketch: sketch_id, source_block_id, root_node (ArgumentNode), metadata (dict)
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- agrega docstrings a cada clase explicando qué representa
+- agrega tests que construyan un sketch mínimo de 2-3 nodos y verifiquen su estructura
+
+Al terminar resume: cómo se relacionan las clases, cómo representar un argumento simple, limitaciones del modelo.
+```
+
 ---
 
 ### Tarea 11 — Extracción de sketches
@@ -398,6 +627,27 @@ Esta tarea hace real la abstracción unificadora.
 **Archivos esperados**
 
 * `src/article2lean/sketches/sketch_extractor.py`
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/11-sketch-extraction` en una rama separada.
+
+Crea src/article2lean/sketches/sketch_extractor.py que exponga:
+- extract_from_block(block: ArticleBlock) -> ArgumentSketch: construye un sketch inicial desde un bloque PROOF o THEOREM
+  - el nodo raíz tiene description = raw_text del bloque, status = OPEN
+  - si el bloque tiene sub-frases separadas por ". " que parezcan pasos argumentales, crea subnodos por cada uno
+  - es válido que el sketch inicial sea solo un nodo raíz abierto
+- extract_from_statement(text: str) -> ArgumentSketch: construye un sketch desde un teorema aislado en texto libre
+  - igual de simple: nodo raíz con el enunciado, status = OPEN
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings explicando qué heurísticas usa para subdividir
+- agrega tests con un párrafo de prueba del fixture y un teorema aislado corto
+
+Al terminar resume: qué heurísticas usa, cuándo crea subnodos, qué tan fiel es el sketch inicial, limitaciones.
+```
 
 ---
 
@@ -433,6 +683,30 @@ Este es el corazón conceptual del proyecto.
 * `src/article2lean/sketches/node_selector.py`
 * `src/article2lean/sketches/sketch_refiner.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/12-sketch-refinement-mvp` en una rama separada.
+
+Crea:
+- src/article2lean/sketches/node_selector.py:
+  - select_next(sketch: ArgumentSketch) -> ArgumentNode | None: devuelve el primer nodo con status OPEN (BFS desde la raíz)
+- src/article2lean/sketches/sketch_refiner.py:
+  - refine(node: ArgumentNode, strategy: str) -> ArgumentNode: aplica una de estas estrategias simples:
+    - "subdivide": divide el nodo en 2 subnodos con fragmentos del texto (split por "; " o ". ")
+    - "assume": marca el nodo como ASSUMED, agrega un ArgumentHole de kind EXTERNAL_DEPENDENCY
+    - "defer": marca el nodo como DEFERRED, agrega un ArgumentHole de kind FORMALIZATION_GAP
+  - update_sketch(sketch: ArgumentSketch, node_id: str, refined_node: ArgumentNode) -> ArgumentSketch: reemplaza el nodo en el árbol (inmutablemente, devuelve un nuevo sketch)
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- las operaciones deben ser puras (no mutar el sketch original)
+- deja docstrings en cada función
+- agrega tests que verifiquen cada estrategia y que el sketch resultante tiene la estructura esperada
+
+Al terminar resume: qué estrategias implementa, cómo evoluciona un nodo, limitaciones del refinamiento actual.
+```
+
 ---
 
 ### Tarea 13 — Clasificación de huecos
@@ -463,6 +737,28 @@ Hace que el sistema sea intelectualmente útil, no solo ejecutable.
 **Archivos esperados**
 
 * `src/article2lean/sketches/hole_classifier.py`
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/13-hole-classification` en una rama separada.
+
+Crea src/article2lean/sketches/hole_classifier.py que:
+- exponga classify_hole(node: ArgumentNode, context: str | None) -> ArgumentHole
+- use heurísticas simples para determinar el HoleKind:
+  - si el texto del nodo contiene frases como "by compactness", "standard argument", "it follows from", "es estándar" → LOGICAL_GAP
+  - si el texto contiene nombres de resultados externos como "[3]", "Banach", "Hilbert" → EXTERNAL_DEPENDENCY
+  - si el nodo tiene status OPEN y texto muy corto (< 20 chars) → FORMALIZATION_GAP
+  - si no se puede determinar → AMBIGUOUS
+- exponga classify_sketch_holes(sketch: ArgumentSketch) -> list[ArgumentHole]: clasifica todos los nodos abiertos
+
+Reglas del proyecto (ver AGENTS.md):
+- usa dataclasses y type hints
+- deja docstrings explicando cada heurística
+- agrega tests con frases representativas de cada categoría
+
+Al terminar resume: qué patrones detecta cada categoría, cuándo queda como AMBIGUOUS, limitaciones de las heurísticas.
+```
 
 ---
 
@@ -497,6 +793,32 @@ Aquí aparece por primera vez una aplicación completa de punta a punta.
 * `src/article2lean/orchestrators/document_ingestion.py`
 * `src/article2lean/orchestrators/article_formalization.py`
 
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/14-article-orchestrator` en una rama separada.
+
+Crea:
+- src/article2lean/orchestrators/document_ingestion.py:
+  - ingest(path: str) -> MarkdownDocument: carga y segmenta el archivo
+  - classify(document: MarkdownDocument) -> list[ArticleBlock]: aplica block_classifier
+  - link(blocks: list[ArticleBlock]) -> list[ArticleBlock]: aplica proof_linker
+  - resolve_references(blocks) -> list[ArticleBlock]: aplica theorem_reference_resolver
+  - build_graph(blocks) -> DependencyGraph: construye el grafo
+- src/article2lean/orchestrators/article_formalization.py:
+  - formalize(blocks, graph) -> list[FormalizationUnit]: genera unidades en orden topológico
+  - assemble(units) -> str: genera el archivo Lean placeholder
+  - run(path: str) -> ArticleResult: ejecuta el pipeline completo y devuelve un ArticleResult
+- dataclass ArticleResult: path, blocks, units, lean_source, holes, graph
+
+Reglas del proyecto (ver AGENTS.md):
+- cada función del orquestador llama a los módulos ya existentes, no reimplementa lógica
+- usa dataclasses y type hints
+- agrega un test de integración mínimo con el fixture garrido2025inexact.md que verifique que el pipeline corre sin errores
+
+Al terminar resume: qué hace cada etapa, cómo leer ArticleResult, dónde podrías intervenir si algo falla.
+```
+
 ---
 
 ### Tarea 15 — Reporte final y explicabilidad
@@ -530,6 +852,32 @@ El sistema debe ser útil también como herramienta de comprensión, no solo de 
 **Archivos esperados**
 
 * `src/article2lean/exporters/report_exporter.py`
+
+**Prompt para el agente**
+
+```text
+Implementa la tarea `feat/15-reporting` en una rama separada.
+
+Crea src/article2lean/exporters/report_exporter.py que:
+- reciba un ArticleResult (de Tarea 14) y genere un reporte Markdown legible
+- el reporte debe incluir secciones:
+  - Resumen: cuántos bloques por tipo (theorem, proof, definition, etc.)
+  - Sketches generados: lista de sketches con su nodo raíz y estado
+  - Pasos verificados: nodos con status FORMALIZED
+  - Dependencias asumidas: nodos con status ASSUMED y su ArgumentHole
+  - Huecos detectados: todos los ArgumentHole clasificados por HoleKind
+  - Lean generado: el contenido del archivo .lean (en bloque de código)
+- exponga: generate_report(result: ArticleResult) -> str
+- exponga: save_report(result: ArticleResult, output_path: str) -> None
+
+Reglas del proyecto (ver AGENTS.md):
+- usa type hints
+- deja docstrings en cada función
+- el formato de salida debe ser Markdown válido y legible sin herramientas adicionales
+- agrega tests que verifiquen que el reporte contiene las secciones esperadas para un resultado mínimo
+
+Al terminar resume: qué secciones incluye el reporte, cómo usarlo, limitaciones de la información actual.
+```
 
 ---
 
@@ -601,29 +949,4 @@ Comandos o inputs mínimos.
 
 ## Limitaciones
 Qué todavía no resuelve.
-```
-
----
-
-## Prompt individual reusable para cada tarea
-
-Conviene reutilizarlo en el chat cada vez que abras una tarea nueva.
-
-```text
-Implementa la tarea `<NOMBRE_DE_LA_TAREA>` en una rama separada.
-
-Necesito que esta tarea no solo funcione, sino que además sea pedagógica para mí.
-
-Incluye:
-- código limpio
-- docstrings claros
-- nombres explícitos
-- tests pequeños
-- una explicación breve en el README o en comentarios sobre cómo encaja esta pieza en el sistema completo
-
-Al terminar, resume:
-1. qué implementaste
-2. qué parte del sistema representa
-3. cómo puedo probarlo
-4. qué limitaciones tiene todavía
 ```
