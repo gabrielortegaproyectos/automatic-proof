@@ -6,15 +6,6 @@ La meta de largo plazo del proyecto es tomar texto matematico informal y
 convertirlo en un flujo de trabajo que pueda formalizarse progresivamente en
 Lean.
 
-## Por que importa esta etapa
-
-Las primeras tareas no intentan formalizar matematicas de punta a punta. Su
-trabajo es crear el mapa del sistema y la primera capa de lectura documental
-para que las siguientes tareas tengan un lugar claro donde vivir.
-
-Si este esqueleto es facil de leer, entonces el resto del proyecto sera mas
-facil de entender, extender y depurar.
-
 ## Como encaja esta pieza en el sistema completo
 
 El sistema completo esta pensado asi:
@@ -26,23 +17,62 @@ El sistema completo esta pensado asi:
 5. Enviar esas obligaciones a Lean y recoger los resultados.
 6. Exportar un reporte legible de lo probado, asumido o diferido.
 
-Este repositorio implementa por ahora el esqueleto del flujo y una primera
-ingesta de Markdown.
+## Estado actual del proyecto
 
-## Ingesta Markdown actual
+| Tarea | Estado | Descripcion |
+|-------|--------|-------------|
+| 01 — Esqueleto del proyecto | ✅ completa | estructura de carpetas, `pyproject.toml`, CLI minima |
+| 02 — Ingesta de Markdown | ✅ completa | `MarkdownDocument` con bloques crudos de heading, paragraph y list |
+| 03 — Segmentacion matematica por reglas | ✅ completa | clasificacion de bloques con `BlockKind`, matching con regex + fuzzy + normalizacion multilingue |
+| 04 — Enlace pruebas/enunciados + delimitacion semantica con LLM | 🔲 pendiente | `proof_linker.py` + ventanas de contexto para LLM |
+| 05 — Resolucion de referencias | 🔲 pendiente | |
+| 06 — Grafo de dependencias | 🔲 pendiente | |
+| 07 — Unidades de formalizacion | 🔲 pendiente | |
+| 08 — Ensamblador Lean | 🔲 pendiente | |
+| 09 — Backend Lean por CLI | 🔲 pendiente | |
+| 10–15 | 🔲 pendiente | sketches, refinamiento, orquestador, reporte |
 
-La capa `ingestion` ya puede leer un archivo Markdown y convertirlo en un
+El detalle completo de cada tarea esta en [`docs/todo.md`](docs/todo.md).
+
+## Ingesta Markdown
+
+La capa `ingestion` lee un archivo Markdown y lo convierte en un
 `MarkdownDocument` con bloques crudos de tipo `heading`, `paragraph` y `list`.
-
-Esta pieza representa la puerta de entrada del modo articulo: todavia no decide
-si un bloque es un teorema o una prueba, pero si deja una estructura navegable
-que la etapa `segmentation` podra clasificar despues.
 
 ```python
 from article2lean.ingestion import load_markdown_file
 
 document = load_markdown_file("tests/fixtures/garrido2025inexact.md")
 first_block = document.blocks[0]
+```
+
+## Segmentacion matematica
+
+La capa `segmentation` anota cada `ArticleBlock` con un `BlockKind` que
+identifica su rol matematico: `THEOREM`, `LEMMA`, `PROOF`, `DEFINITION`,
+`PROPOSITION`, `COROLLARY`, `REMARK`, `EXAMPLE`, `OBSERVATION`, `CONJECTURE`,
+`NOTATION`, `HEADING`, `PARAGRAPH`, `LIST` o `UNKNOWN`.
+
+La clasificacion opera en dos pasos:
+
+1. **Headings**: `classify_heading(title)` detecta el keyword matematico en el
+   titulo del encabezado via regex (path rapido) y fallback fuzzy (path lento).
+2. **Parrafos inline**: `classify_inline(text)` detecta etiquetas al inicio del
+   parrafo, incluyendo marcadores en negrita/italica.
+
+Ambas capas soportan:
+
+- nombres completos en ingles, espanol, frances y portugues
+- abreviaciones (`Def.`, `Thm.`, `Prop.`, `Lem.`, `Cor.`, `Rem.`, `Obs.`, `Conj.`, `Note`)
+- variantes tipograficas via `difflib`
+
+```python
+from article2lean.segmentation.block_classifier import classify_blocks
+from article2lean.ingestion import load_markdown_file
+
+document = load_markdown_file("tests/fixtures/garrido2025inexact.md")
+blocks = classify_blocks(document)
+theorems = [b for b in blocks if b.block_type == "theorem"]
 ```
 
 ## Subsistemas
@@ -77,10 +107,9 @@ La CLI es intencionalmente minima y pedagogica por ahora.
 
 ## Limitaciones actuales
 
-- La ingesta Markdown actual es simple: solo reconoce headings, parrafos y
-  listas planas.
-- El proyecto todavia no clasifica bloques matematicos como definiciones,
-  teoremas o pruebas.
+- La segmentacion detecta donde *empieza* cada unidad semantica pero no donde
+  *termina*. La delimitacion completa (un teorema puede abarcar varios parrafos
+  y listas) se resolvera en Tarea 04 usando un LLM con ventanas de contexto.
 - El proyecto todavia no construye objetos `ArgumentSketch`.
 - El backend de Lean sigue siendo un placeholder.
 - La mayoria de los modulos existen para dejar claras las responsabilidades,
